@@ -9,7 +9,7 @@
 | 本机 desktop profile 安装并验证 | ✅ 已完成（host 半热加载，`ask_user` 已在工具清单里） |
 | 仓库根 `screenshots.json`（市场截图，1–8 张） | ✅ 已完成（4 张，`assets/panel-*.png`） |
 | `npm publish` | ⬜ 可选 |
-| 向精选列表提 PR（`data/plugins/mouse985__dsh-ask-panel.yml`） | ⬜ 待做（仓库满 1 天后 CI 才放行） |
+| 向精选列表提 PR（`data/plugins/mouse985__dsh-ask-panel.yml`） | ✅ 已提：[`awesome-dsh-plugin#16101`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/16101)（仓库未满 1 天时 CI 会挡 age gate，等一天后重跑即可） |
 
 市场（`https://awesome-dsh-plugin.com/plugins.json`）只收录
 `awesome-dsh-plugin/awesome-dsh-plugin` 精选列表里的条目，所以「上市场」= **仓库是一个能被
