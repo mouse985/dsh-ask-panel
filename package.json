@@ -1,0 +1,59 @@
+{
+  "name": "dsh-ask-panel",
+  "version": "0.1.0",
+  "description": "Ask the user mid-turn with consequence-aware options: hover an option to see what choosing it changes, add a note, or hand the decision back to the agent.",
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "question",
+    "ask-user",
+    "interaction",
+    "decision"
+  ],
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "client.js",
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mouse985/dsh-ask-panel.git"
+  },
+  "homepage": "https://github.com/mouse985/dsh-ask-panel#readme",
+  "bugs": {
+    "url": "https://github.com/mouse985/dsh-ask-panel/issues"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots"
+      ]
+    },
+    "manifestVersion": 1
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

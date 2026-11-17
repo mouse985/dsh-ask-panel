@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Ask panel">
+  <rect x="3.5" y="9.5" width="57" height="45" rx="9" fill="none" stroke="#4f6bff" stroke-width="3"/>
+  <path d="M10 22h28" stroke="#9aa4b2" stroke-width="3" stroke-linecap="round"/>
+  <path d="M10 32h20" stroke="#4f6bff" stroke-width="3" stroke-linecap="round"/>
+  <path d="M10 42h14" stroke="#9aa4b2" stroke-width="3" stroke-linecap="round"/>
+  <path d="M43 26v16" stroke="#e0562f" stroke-width="4" stroke-linecap="round"/>
+  <path d="M49 34h8" stroke="#4f6bff" stroke-width="3" stroke-linecap="round"/>
+</svg>

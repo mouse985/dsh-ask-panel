@@ -1,0 +1,9 @@
+# dsh-ask-panel bundle patch.
+#
+# One row. Both halves carry behaviour: the Node half registers the
+# `ask_user` tool (question batching, budget, and the turn-concluding
+# cancellation path); the Client half claims the composer chain for batches
+# that opt into the consequence-aware card.
+- insert:
+    - id: ask-panel
+      name: 'dsh-ask-panel'

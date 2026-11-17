@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Ask panel",
+    "description": "Ask the user mid-turn with consequence-aware options: hover an option to see what choosing it changes, add a note, or hand the decision back to the agent."
+  }
+}
