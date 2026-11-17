@@ -60,9 +60,19 @@ const decodeCases = [
   ['proceed door', { selected: [host.PROCEED_LABEL] }, { kind: 'proceed' }],
 ]
 for (const [name, answer, expected] of decodeCases) {
-  const actual = host.decodeAnswer(answer, { id: 'q1' })
+  const actual = host.decodeAnswer(answer, { id: 'q1', options: [{ label: 'A' }, { label: 'B' }] })
   check(`decode ${name}`, JSON.stringify(actual) === JSON.stringify(expected), JSON.stringify(actual))
 }
+
+const otherDecoded = host.decodeAnswer(
+  { selected: [host.OTHER_LABEL], custom: '我自己写的答案' },
+  { id: 'q1', options: [{ label: 'A' }, { label: host.OTHER_LABEL }] },
+)
+check(
+  'decode free text typed into the other row',
+  JSON.stringify(otherDecoded) === JSON.stringify({ questionId: 'q1', custom: '我自己写的答案' }),
+  JSON.stringify(otherDecoded),
+)
 
 // --- host: tool registration and both terminal paths --------------------
 
@@ -262,7 +272,38 @@ check('multi pick appends', JSON.stringify(client.applyPick(['A'], 'B', true)) =
 check('multi pick toggles off', JSON.stringify(client.applyPick(['A', 'B'], 'A', true)) === JSON.stringify(['B']))
 check('multi pick keeps every extra', client.applyPick([], 'C', true).length === 1)
 
-const cost = client.costOf([{ options: [{ impact: { summary: 'abc' } }, { impact: null }] }, { options: [] }])
+const otherRow = client.parseOption({ label: host.OTHER_LABEL, description: host.OTHER_MARKER })
+check('parse marks the other row', otherRow.other === true && otherRow.summary === '')
+check('parse keeps the other marker out of the summary',
+  client.parseOption({ label: 'A', description: '摘要' }).other === false)
+
+const freeQuestions = [{ id: 'q1', multiSelect: false, options: [{ label: 'A' }, { label: host.OTHER_LABEL, other: true }] }]
+const freeBuilt = client.buildAnswers(freeQuestions, [[host.OTHER_LABEL]], [''], ['我自己的答案'])
+check('other answer becomes free text',
+  JSON.stringify(freeBuilt[0]) === JSON.stringify({ id: 'q1', selected: [], custom: '我自己的答案' }),
+  JSON.stringify(freeBuilt[0]))
+
+const freeWithNote = client.buildAnswers(freeQuestions, [[host.OTHER_LABEL]], ['再加一句'], ['我自己的答案'])
+check('other answer keeps its note',
+  freeWithNote[0].custom === '我自己的答案' + host.NOTE_SEPARATOR + '再加一句'
+  && JSON.stringify(freeWithNote[0].selected) === '[]')
+
+const multiFree = client.buildAnswers(
+  [{ id: 'q1', multiSelect: true, options: [{ label: 'A' }, { label: host.OTHER_LABEL, other: true }] }],
+  [['A', host.OTHER_LABEL]],
+  [''],
+  ['补充说明'],
+)
+check('multi answer keeps the extra picks beside free text',
+  JSON.stringify(multiFree[0].selected) === '["A"]' && multiFree[0].custom === '补充说明',
+  JSON.stringify(multiFree[0]))
+
+check('missingOther flags an empty other row', client.missingOther(freeQuestions[0], [host.OTHER_LABEL], '') === true)
+check('missingOther accepts typed text', client.missingOther(freeQuestions[0], [host.OTHER_LABEL], '写了') === false)
+check('missingOther ignores the other row when unpicked', client.missingOther(freeQuestions[0], ['A'], '') === false)
+check('missingOther ignores questions without the other row', client.missingOther({ id: 'q9' }, ['A'], '') === false)
+
+const cost = client.costOf([{ options: [{ impact: { summary: 'abc' } }, { impact: null }, { impact: null, other: true }] }, { options: [] }])
 check('cost counts options', cost.options === 2 && cost.filled === 1 && cost.tokens > 0)
 check('formatTokens small', client.formatTokens(581) === '581')
 check('formatTokens thousands', client.formatTokens(1200) === '1.2K')

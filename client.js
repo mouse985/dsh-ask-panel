@@ -35,6 +35,9 @@
       /** Separator the host tool uses inside `description` before the impact JSON. */
       const IMPACT_MARKER = '\n[[impact]]'
 
+      /** Marker the host puts on the free-text option it always appends. */
+      const OTHER_MARKER = '[[other]]'
+
       /** Delay before opening the preview when nothing is open yet. */
       const OPEN_DELAY = 500
 
@@ -59,6 +62,8 @@
           'option.picked': '已选',
           'option.multi': '可多选',
           'option.multiDesc': '这一题可以选多个，选完点下一步',
+          'option.count': '已选 {n} 项',
+          'other.placeholder': '写你自己的答案',
           'fly.tag': '预览',
           'fly.tagPicked': '已选',
           'fly.hintInspect': '查看影响',
@@ -85,6 +90,7 @@
           'handoff.done.proceed': '已交给智能体 · 按我的思路继续做完',
           'handoff.done.halt': '已停下 · 等待你的新决策',
           'error.pick': '先选一个选项，或者点「取消」把决定交回给我。',
+          'error.other': '「其他」这一项要写上你自己的答案才能提交。',
         },
         en: {
           'title': 'This needs your call',
@@ -99,6 +105,8 @@
           'option.picked': 'Picked',
           'option.multi': 'Multi-select',
           'option.multiDesc': 'Pick as many as you need, then continue',
+          'option.count': '{n} picked',
+          'other.placeholder': 'Type your own answer',
           'fly.tag': 'Preview',
           'fly.tagPicked': 'Picked',
           'fly.hintInspect': 'See impact',
@@ -125,6 +133,7 @@
           'handoff.done.proceed': 'Handed back · continuing on my judgement',
           'handoff.done.halt': 'Stopped · waiting for your decision',
           'error.pick': 'Pick an option first, or press Cancel to hand the decision back.',
+          'error.other': 'Type your own answer in the "Other" field before submitting.',
         },
       }
 
@@ -156,6 +165,10 @@
 .dsh-askp-opt-hint{margin-left:auto;font-size:11px;color:#9aa2b1;opacity:0;transition:opacity .12s}
 .dsh-askp-opt:hover .dsh-askp-opt-hint,.dsh-askp-opt:focus-visible .dsh-askp-opt-hint{opacity:1}
 .dsh-askp-opt-desc{margin-top:3px;font-size:12px;line-height:1.6;color:#7b8494}
+.dsh-askp-count{background:#e8f0ff;color:#2563eb}
+.dsh-askp-other{padding:0 10px 8px 32px}
+.dsh-askp-other-input{width:100%;box-sizing:border-box;border:1px solid #cddbff;background:#fff;border-radius:8px;padding:7px 10px;font:inherit;font-size:12.5px;color:#20242c}
+.dsh-askp-other-input:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
 .dsh-askp-cost{margin:8px 10px 2px;font-size:11.5px;line-height:1.6;color:#9aa2b1}
 .dsh-askp-cost b{font-weight:600;color:#69717f}
 .dsh-askp-foot{display:flex;align-items:center;gap:8px;padding:10px 14px 12px;border-top:1px solid #f0f2f5}
@@ -204,15 +217,17 @@
        */
       function parseOption(option) {
         const raw = typeof option.description === 'string' ? option.description : ''
-        const at = raw.indexOf(IMPACT_MARKER)
-        if (at < 0) return { label: option.label, summary: raw, impact: null }
+        const other = raw.includes(OTHER_MARKER)
+        const text = raw.split(OTHER_MARKER).join('').trim()
+        const at = text.indexOf(IMPACT_MARKER)
+        if (at < 0) return { label: option.label, summary: text, impact: null, other }
         let impact = null
         try {
-          impact = JSON.parse(raw.slice(at + IMPACT_MARKER.length))
+          impact = JSON.parse(text.slice(at + IMPACT_MARKER.length))
         } catch {
           impact = null
         }
-        return { label: option.label, summary: raw.slice(0, at), impact }
+        return { label: option.label, summary: text.slice(0, at), impact, other }
       }
 
       /**
@@ -304,6 +319,7 @@
         let chars = 0
         for (const question of questions) {
           for (const option of question.options) {
+            if (option.other === true) continue
             options += 1
             const impact = option.impact
             if (impact === null || Object.keys(impact).length === 0) continue
@@ -343,7 +359,8 @@
        * @param notes - notes per question.
        * @returns Answer payload entries.
        */
-      function buildAnswers(questions, picks, notes) {
+      function buildAnswers(questions, picks, notes, others) {
+        const typed = others ?? []
         return questions.map((question, index) => {
           const picked = picks[index] ?? []
           const note = (notes[index] ?? '').trim()
@@ -351,12 +368,44 @@
           if (proceed || picked.length === 0) {
             return { id: question.id, selected: proceed ? [PROCEED_LABEL] : [] }
           }
+          const free = freeOption(question, picked)
+          if (free !== undefined) {
+            const text = (typed[index] ?? '').trim()
+            const rest = picked.filter((label) => label !== free.label)
+            if (text === '') return { id: question.id, selected: rest }
+            const custom = note === '' ? text : text + NOTE_SEPARATOR + note
+            return { id: question.id, selected: question.multiSelect === true ? rest : [], custom }
+          }
           if (note !== '') {
             if (question.multiSelect) return { id: question.id, selected: picked, custom: note }
             return { id: question.id, selected: [], custom: picked[0] + NOTE_SEPARATOR + note }
           }
           return { id: question.id, selected: picked }
         })
+      }
+
+      /**
+       * The free-text option of a question, when the user picked it.
+       * @param question - display question.
+       * @param picked - labels picked for that question.
+       * @returns The picked free-text option, or undefined.
+       */
+      function freeOption(question, picked) {
+        const options = Array.isArray(question.options) ? question.options : []
+        return options.find((option) => option.other === true && picked.includes(option.label))
+      }
+
+      /**
+       * Whether a question's picked labels need free text before they can be submitted.
+       * @param question - display question.
+       * @param entry - labels picked for that question.
+       * @param typed - free text typed into the "other" row.
+       * @returns True when the free-text option is picked but still empty.
+       */
+      function missingOther(question, entry, typed) {
+        const free = freeOption(question, entry)
+        if (free === undefined) return false
+        return (typed ?? '').trim() === ''
       }
 
       /**
@@ -393,6 +442,7 @@
         const [index, setIndex] = React.useState(0)
         const [picks, setPicks] = React.useState(() => questions.map(() => []))
         const [notes, setNotes] = React.useState(() => questions.map(() => ''))
+        const [others, setOthers] = React.useState(() => questions.map(() => ''))
         const [fly, setFly] = React.useState(null)
         const [mode, setMode] = React.useState('ask')
         const [handPick, setHandPick] = React.useState(null)
@@ -468,9 +518,17 @@
             setStatus(t('error.pick'))
             return
           }
+          const blank = questions.findIndex((question, questionIndex) => (
+            missingOther(question, picks[questionIndex] ?? [], others[questionIndex])
+          ))
+          if (blank >= 0) {
+            setIndex(blank)
+            setStatus(t('error.other'))
+            return
+          }
           setBusy('answer')
           setStatus('')
-          void respond({ answers: buildAnswers(questions, picks, notes) })
+          void respond({ answers: buildAnswers(questions, picks, notes, others) })
             .then((receipt) => {
               if (receipt?.accepted === false) throw new Error(`answer rejected: ${String(receipt.reason)}`)
               setDone(t('action.submit'))
@@ -564,6 +622,9 @@
                   current.title,
                   current.multiSelect === true
                     ? h('span', { className: 'dsh-askp-tag', title: t('option.multiDesc') }, t('option.multi'))
+                    : null,
+                  (picks[index] ?? []).length > 0
+                    ? h('span', { className: 'dsh-askp-tag dsh-askp-count' }, t('option.count', { n: (picks[index] ?? []).length }))
                     : null)),
               h('div', { className: 'dsh-askp-pager' },
                 h('button', {
@@ -590,6 +651,13 @@
                   note: (notes[index] ?? '').trim() !== '',
                   multi: current.multiSelect === true,
                   t,
+                  otherText: others[index] ?? '',
+                  onOtherInput: (value) => {
+                    setStatus('')
+                    setOthers((entries) => entries.map((entry, entryIndex) => (
+                      entryIndex === index ? value : entry
+                    )))
+                  },
                   onPick: () => togglePick(option.label, current.multiSelect === true),
                   onHover: () => hoverOption(index, option),
                   onLeave: scheduleClose,
@@ -611,6 +679,10 @@
                   if (index < questions.length - 1) {
                     if ((picks[index] ?? []).length === 0) {
                       setStatus(t('error.pick'))
+                      return
+                    }
+                    if (missingOther(current, picks[index] ?? [], others[index])) {
+                      setStatus(t('error.other'))
                       return
                     }
                     setIndex(index + 1)
@@ -637,7 +709,7 @@
        * @returns The row element.
        */
       function optionRow(row) {
-        const { option, questionIndex, picked, note, multi, t, onPick, onHover, onLeave } = row
+        const { option, questionIndex, picked, note, multi, t, otherText, onOtherInput, onPick, onHover, onLeave } = row
         return h('li', { key: option.label },
           h('button', {
             type: 'button',
@@ -660,7 +732,23 @@
             picked ? h('span', { className: 'dsh-askp-badge' }, t('option.picked')) : null,
             note ? h('span', { className: 'dsh-askp-badge dsh-askp-badge-note' }, t('pickedNote')) : null,
             h('span', { className: 'dsh-askp-opt-hint' }, t('fly.hintInspect'))),
-          option.summary === '' ? null : h('span', { className: 'dsh-askp-opt-desc' }, option.summary)))
+          option.summary === '' ? null : h('span', { className: 'dsh-askp-opt-desc' }, option.summary)),
+        option.other === true && picked
+          ? h('div', { className: 'dsh-askp-other' },
+            h('input', {
+              type: 'text',
+              className: 'dsh-askp-other-input',
+              value: otherText,
+              placeholder: t('other.placeholder'),
+              'aria-label': t('other.placeholder'),
+              onChange: (event) => onOtherInput(event.target.value),
+              onKeyDown: (event) => {
+                if (event.key === 'Enter') event.preventDefault()
+              },
+              onMouseEnter: onHover,
+              onMouseLeave: onLeave,
+            }))
+          : null)
       }
 
       /**
@@ -796,6 +884,7 @@
       exports.parseOption = parseOption
       exports.claimsAsk = claimsAsk
       exports.buildAnswers = buildAnswers
+      exports.missingOther = missingOther
       exports.applyPick = applyPick
       exports.costOf = costOf
       exports.formatTokens = formatTokens
