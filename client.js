@@ -213,9 +213,57 @@
        * @returns True when the synthetic "decide it yourself" option is present.
        */
       function claimsAsk(carrier) {
-        const questions = carrier?.payload?.questions
+        const questions = questionsOf(carrier)
         if (!Array.isArray(questions)) return false
         return questions.some(question => (question.options ?? []).some(option => option.label === PROCEED_LABEL))
+      }
+
+      /**
+       * The question list of a pending carrier, across carrier shapes.
+       * @param carrier - pending question carrier.
+       * @returns Questions array, or undefined when the carrier carries none.
+       */
+      function questionsOf(carrier) {
+        if (!carrier) return undefined
+        if (Array.isArray(carrier.questions)) return carrier.questions
+        return carrier.payload?.questions
+      }
+
+      /**
+       * Pick the pending question carrier out of a composer owner, across owner shapes.
+       * Installed builds hand a single `pendingInteraction`; older ones hand an `interactions` list.
+       * @param owner - composer chain owner props.
+       * @returns The question carrier this plugin claims, or null.
+       */
+      function toCarrier(owner) {
+        const single = owner?.pendingInteraction
+        if (single && single.kind === 'question') return single
+        const list = Array.isArray(owner?.interactions) ? owner.interactions : []
+        return list.find(entry => entry?.kind === 'question') ?? null
+      }
+
+      /**
+       * Deliver an answer through whichever settlement API the carrier exposes.
+       * @param carrier - pending question carrier.
+       * @param answer - wire answer payload.
+       * @returns Settlement promise.
+       */
+      function settle(carrier, answer) {
+        if (typeof carrier.answer === 'function') return carrier.answer(answer)
+        return carrier.respond({ ok: true, value: { sessionId: carrier.sessionId, answer } })
+      }
+
+      /**
+       * Abandon the ask through whichever cancellation API the carrier exposes.
+       * @param carrier - pending question carrier.
+       * @returns Settlement promise.
+       */
+      function settleCancel(carrier) {
+        if (typeof carrier.cancel === 'function') return Promise.resolve(carrier.cancel())
+        return carrier.respond({
+          ok: false,
+          error: { code: 'cancelled', message: 'the user cancelled the ask card', details: {} },
+        })
       }
 
       /**
@@ -319,7 +367,7 @@
         const carrier = props.matched
         const t = translator(props.t)
         const questions = React.useMemo(
-          () => (carrier?.payload?.questions ?? []).map(displayQuestion),
+          () => (questionsOf(carrier) ?? []).map(displayQuestion),
           [carrier],
         )
         const [index, setIndex] = React.useState(0)
@@ -388,10 +436,7 @@
           }))
         }
 
-        const respond = (answer) => {
-          const payload = { ok: true, value: { sessionId: carrier.sessionId, answer } }
-          return carrier.respond(payload)
-        }
+        const respond = (answer) => settle(carrier, answer)
 
         const say = (error) => {
           setBusy(null)
@@ -446,10 +491,7 @@
               .catch(say)
             return
           }
-          void carrier.respond({
-            ok: false,
-            error: { code: 'cancelled', message: 'the user cancelled the ask card', details: {} },
-          })
+          void settleCancel(carrier)
             .then((receipt) => {
               if (receipt?.accepted === false) throw new Error(`handoff rejected: ${String(receipt.reason)}`)
               setDone(t('handoff.done.halt'))
@@ -695,9 +737,13 @@
        * @returns The question carrier to render, or null to pass.
        */
       exports.select = (owner) => {
-        const interactions = owner?.interactions ?? []
-        return interactions.find((entry) => entry.kind === 'question' && claimsAsk(entry)) ?? null
+        const carrier = toCarrier(owner)
+        return carrier !== null && claimsAsk(carrier) ? carrier : null
       }
+
+      exports.toCarrier = toCarrier
+      exports.settle = settle
+      exports.settleCancel = settleCancel
 
       /**
        * Client plugin body: dictionaries, stylesheet, and the chain entry.

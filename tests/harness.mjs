@@ -210,6 +210,34 @@ const ours = carrierOf([
   { id: 'q1', question: 'pick', options: [{ label: 'A', description: 'sum' + host.IMPACT_MARKER + '{"summary":"s"}' }, { label: host.PROCEED_LABEL }] },
 ])
 check('selector claims our batch', client.select({ interactions: [ours] }) === ours)
+check('selector claims the single carrier shape', client.select({ pendingInteraction: ours }) === ours)
+check('selector passes when the single carrier is foreign',
+  client.select({ pendingInteraction: { kind: 'approval' } }) === null)
+check('selector passes on an empty owner', client.select({}) === null)
+
+const rootCarrier = { kind: 'question', key: 'q:2', sessionId: 's1', questions: [{ id: 'q1', question: 'x', options: [{ label: host.PROCEED_LABEL }] }] }
+check('selector reads questions off the carrier root', client.select({ pendingInteraction: rootCarrier }) === rootCarrier)
+
+let answeredWith = null
+let cancelCalled = false
+const modern = {
+  kind: 'question',
+  sessionId: 's1',
+  payload: { questions: [] },
+  answer: (answer) => { answeredWith = answer; return Promise.resolve() },
+  cancel: () => { cancelCalled = true; return Promise.resolve() },
+}
+await client.settle(modern, { answers: [] })
+check('settle prefers answer()', answeredWith !== null && JSON.stringify(answeredWith) === JSON.stringify({ answers: [] }))
+await client.settleCancel(modern)
+check('settleCancel prefers cancel()', cancelCalled)
+
+let legacyPayload = null
+const legacy = { kind: 'question', sessionId: 's9', payload: { questions: [] }, respond: (payload) => { legacyPayload = payload; return Promise.resolve({ accepted: true }) } }
+await client.settle(legacy, { answers: [] })
+check('settle falls back to respond()', legacyPayload?.value?.sessionId === 's9' && legacyPayload?.ok === true)
+await client.settleCancel(legacy)
+check('settleCancel falls back to a cancelled response', legacyPayload?.error?.code === 'cancelled')
 
 // --- client: parsing / answers / cost -----------------------------------
 
