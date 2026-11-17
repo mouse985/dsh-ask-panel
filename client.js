@@ -57,6 +57,8 @@
           'action.back': '返回提问',
           'action.confirm': '确认',
           'option.picked': '已选',
+          'option.multi': '可多选',
+          'option.multiDesc': '这一题可以选多个，选完点下一步',
           'fly.tag': '预览',
           'fly.tagPicked': '已选',
           'fly.hintInspect': '查看影响',
@@ -95,6 +97,8 @@
           'action.back': 'Back',
           'action.confirm': 'Confirm',
           'option.picked': 'Picked',
+          'option.multi': 'Multi-select',
+          'option.multiDesc': 'Pick as many as you need, then continue',
           'fly.tag': 'Preview',
           'fly.tagPicked': 'Picked',
           'fly.hintInspect': 'See impact',
@@ -145,6 +149,10 @@
 .dsh-askp-opt[data-picked="true"] .dsh-askp-opt-label{color:#2563eb}
 .dsh-askp-badge{font-size:10.5px;line-height:1.5;padding:0 6px;border-radius:999px;background:#e8f0ff;color:#2563eb}
 .dsh-askp-badge-note{background:#eef7ee;color:#2f7a3f}
+.dsh-askp-mark{flex:none;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:999px;border:1.5px solid #c2c9d6;background:#fff;font-size:9px;line-height:1;color:#fff}
+.dsh-askp-opt[data-multi="true"] .dsh-askp-mark{border-radius:4px}
+.dsh-askp-opt[data-picked="true"] .dsh-askp-mark{background:#2563eb;border-color:#2563eb}
+.dsh-askp-tag{margin-left:6px;font-size:10.5px;font-weight:500;line-height:1.6;padding:0 6px;border-radius:999px;background:#eef1f6;color:#5b6472;vertical-align:1px}
 .dsh-askp-opt-hint{margin-left:auto;font-size:11px;color:#9aa2b1;opacity:0;transition:opacity .12s}
 .dsh-askp-opt:hover .dsh-askp-opt-hint,.dsh-askp-opt:focus-visible .dsh-askp-opt-hint{opacity:1}
 .dsh-askp-opt-desc{margin-top:3px;font-size:12px;line-height:1.6;color:#7b8494}
@@ -307,6 +315,18 @@
       }
 
       /**
+       * Fold a click into one question's picked labels.
+       * @param entry - labels already picked for the question.
+       * @param label - label the user clicked.
+       * @param multi - whether the question allows more than one pick.
+       * @returns The next picked labels.
+       */
+      function applyPick(entry, label, multi) {
+        if (multi === true) return entry.includes(label) ? entry.filter((item) => item !== label) : [...entry, label]
+        return entry.includes(label) ? [] : [label]
+      }
+
+      /**
        * Format a token estimate for the cost line.
        * @param tokens - token count.
        * @returns `581` or `1.2K`.
@@ -427,13 +447,11 @@
           openTimer.current = window.setTimeout(() => openFor(questionIndex, option), OPEN_DELAY)
         }
 
-        const togglePick = (label) => {
+        const togglePick = (label, multi) => {
           setStatus('')
-          setPicks((entries) => entries.map((entry, entryIndex) => {
-            if (entryIndex !== index) return entry
-            if (entry.includes(label)) return []
-            return [label]
-          }))
+          setPicks((entries) => entries.map((entry, entryIndex) => (
+            entryIndex === index ? applyPick(entry, label, multi) : entry
+          )))
         }
 
         const respond = (answer) => settle(carrier, answer)
@@ -542,7 +560,11 @@
             h('div', { className: 'dsh-askp-head' },
               h('div', { className: 'dsh-askp-head-main' },
                 current.header === undefined ? null : h('div', { className: 'dsh-askp-eyebrow' }, current.header),
-                h('h2', { className: 'dsh-askp-title' }, current.title)),
+                h('h2', { className: 'dsh-askp-title' },
+                  current.title,
+                  current.multiSelect === true
+                    ? h('span', { className: 'dsh-askp-tag', title: t('option.multiDesc') }, t('option.multi'))
+                    : null)),
               h('div', { className: 'dsh-askp-pager' },
                 h('button', {
                   className: 'dsh-askp-icon', type: 'button', 'aria-label': 'prev',
@@ -560,14 +582,15 @@
                   onClick: cancelAsk, disabled: busy !== null,
                 }, '×'))),
             h('div', { className: 'dsh-askp-body' },
-              h('ul', { className: 'dsh-askp-options' },
+              h('ul', { className: 'dsh-askp-options', 'data-multi': current.multiSelect === true ? 'true' : 'false' },
                 current.options.map((option, optionIndex) => optionRow({
                   option,
                   questionIndex: index,
                   picked: (picks[index] ?? []).includes(option.label),
                   note: (notes[index] ?? '').trim() !== '',
+                  multi: current.multiSelect === true,
                   t,
-                  onPick: () => togglePick(option.label),
+                  onPick: () => togglePick(option.label, current.multiSelect === true),
                   onHover: () => hoverOption(index, option),
                   onLeave: scheduleClose,
                 }))),
@@ -614,14 +637,17 @@
        * @returns The row element.
        */
       function optionRow(row) {
-        const { option, questionIndex, picked, note, t, onPick, onHover, onLeave } = row
+        const { option, questionIndex, picked, note, multi, t, onPick, onHover, onLeave } = row
         return h('li', { key: option.label },
           h('button', {
             type: 'button',
             className: 'dsh-askp-opt',
             'data-askp-opt': String(questionIndex),
             'data-picked': picked ? 'true' : 'false',
-            'aria-pressed': picked,
+            'data-multi': multi ? 'true' : 'false',
+            role: multi ? 'checkbox' : 'button',
+            'aria-checked': multi ? picked : undefined,
+            'aria-pressed': multi ? undefined : picked,
             onClick: onPick,
             onMouseEnter: onHover,
             onFocus: onHover,
@@ -629,6 +655,7 @@
             onBlur: onLeave,
           },
           h('span', { className: 'dsh-askp-opt-line' },
+            h('span', { className: 'dsh-askp-mark', 'aria-hidden': 'true' }, picked ? '✓' : ''),
             h('span', { className: 'dsh-askp-opt-label' }, option.label),
             picked ? h('span', { className: 'dsh-askp-badge' }, t('option.picked')) : null,
             note ? h('span', { className: 'dsh-askp-badge dsh-askp-badge-note' }, t('pickedNote')) : null,
@@ -769,6 +796,7 @@
       exports.parseOption = parseOption
       exports.claimsAsk = claimsAsk
       exports.buildAnswers = buildAnswers
+      exports.applyPick = applyPick
       exports.costOf = costOf
       exports.formatTokens = formatTokens
       exports.PROCEED_LABEL = PROCEED_LABEL

@@ -256,6 +256,12 @@ check('note answer splits label', built[1].selected.length === 0 && built[1].cus
 check('skipped answer', JSON.stringify(built[2]) === JSON.stringify({ id: 'q3', selected: [] }))
 check('multi answer', JSON.stringify(built[3]) === JSON.stringify({ id: 'q4', selected: ['C', 'D'] }))
 
+check('single pick replaces', JSON.stringify(client.applyPick(['A'], 'B', false)) === JSON.stringify(['B']))
+check('single pick clears itself', client.applyPick(['A'], 'A', false).length === 0)
+check('multi pick appends', JSON.stringify(client.applyPick(['A'], 'B', true)) === JSON.stringify(['A', 'B']))
+check('multi pick toggles off', JSON.stringify(client.applyPick(['A', 'B'], 'A', true)) === JSON.stringify(['B']))
+check('multi pick keeps every extra', client.applyPick([], 'C', true).length === 1)
+
 const cost = client.costOf([{ options: [{ impact: { summary: 'abc' } }, { impact: null }] }, { options: [] }])
 check('cost counts options', cost.options === 2 && cost.filled === 1 && cost.tokens > 0)
 check('formatTokens small', client.formatTokens(581) === '581')
