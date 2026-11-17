@@ -2,9 +2,9 @@
 
 在过程中向用户提问，并且让「选它之后会发生什么」看得见：悬停选项拉出影响预览，可以在预览里写改进意见，也可以把决定权交回智能体——取消不等于静默关闭，它本身就是一个决策。
 
-![真实插件交互演示：悬停拉出影响预览、写意见、取消后接管决策](assets/demo.gif)
+![真实插件交互演示：悬停拉出影响预览、写意见、取消后接管决策](https://raw.githubusercontent.com/mouse985/dsh-ask-panel/main/assets/demo.gif)
 
-> 上面这段是插件在真实界面里跑出来的录屏（逐帧捕获真实 `client.js` 渲染，不是设计稿）：悬停 0.5 秒拉出影响预览、在预览里写意见、勾「其他」自由输入、取消后进入接管卡。完整 mp4 在 [`assets/demo.mp4`](assets/demo.mp4)。
+> 上面这段是插件在真实界面里跑出来的录屏（逐帧捕获真实 `client.js` 渲染，不是设计稿）：悬停 0.5 秒拉出影响预览、在预览里写意见、勾「其他」自由输入、取消后进入接管卡。完整 mp4 在 [`assets/demo.mp4`](https://raw.githubusercontent.com/mouse985/dsh-ask-panel/main/assets/demo.mp4)。
 
 安装：
 
@@ -41,9 +41,9 @@ harness 默认一路静默执行。遇到两条实现路线都能讲通、但选
 7. 点「取消」不是关掉——弹出接管卡，两个选择：*按你的思路继续做完* / *停在这里，等我重新决策*。
 8. 下一条自动附带 `〔按你的判断继续〕` 选项，模型随时可以把决定权交回来。
 
-![在预览底部写意见，随答案一起提交；勾「其他」就地输入](assets/shot-other.png)
+![在预览底部写意见，随答案一起提交；勾「其他」就地输入](https://raw.githubusercontent.com/mouse985/dsh-ask-panel/main/assets/shot-other.png)
 
-![取消之后的接管卡](assets/shot-handoff.png)
+![取消之后的接管卡](https://raw.githubusercontent.com/mouse985/dsh-ask-panel/main/assets/shot-handoff.png)
 
 ## 它真的影响智能体
 
@@ -67,7 +67,7 @@ harness 默认一路静默执行。遇到两条实现路线都能讲通、但选
 - 结果只回结论：工具返回的是 `{questionId, label, note}` 这个量级，不回显问题全文与影响说明。
 - 悬停、预览、写意见都不发请求。
 
-![卡片底部的成本刻度](assets/shot-default.png)
+![卡片底部的成本刻度](https://raw.githubusercontent.com/mouse985/dsh-ask-panel/main/assets/shot-default.png)
 
 ## 契约（实现依据）
 
