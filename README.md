@@ -21,6 +21,15 @@ dsh plugin --profile desktop add github:mouse985/dsh-ask-panel
 
 harness 默认一路静默执行。遇到两条实现路线都能讲通、但选错就要返工的岔口时，模型只有两个坏选择：随便挑一个赌，或者停下来等用户说下一句。这个插件提供第三条：把岔口摆出来，且**每个选项都带着代价**——改哪些文件、影响哪些现有行为、风险高低、大概几轮。用户在悬停的一刻就补齐了判断所需的信息。
 
+## 装上就全局生效
+
+插件装好后是 bundle 级的根注册，两半各自覆盖全部会话，不需要新建会话或在某个 preset 里勾选：
+
+- **工具**：`ask_user` 与其它工具一样逐轮从实时注册表装配（`packages/core/agent-loop/src/agent.ts:230` 每轮 `systemPrompt.assemble`），不是启动时定死的清单。所以**插件装上之前就存在的老会话，只要再发一条消息，下一轮请求里就带上 `ask_user`**——日志里可以直接看到：老会话 `session-707318cf` 在插件生效后 header 里的工具数从 81 变 86。
+- **提示词**：`lib/index.js` 注册一个 `tool:ask_user` 的 prompt section（`order: 108`，落在其它工具插件的 guidance band 里），告诉模型什么时候该问：两条以上都讲得通的实现、选错就要返工、或者下一步不好撤回。这一段也在 bundle 作用域里注册，所有预设、所有会话共享。
+
+只有工具、没有这段规则时会出事：工具装上了，模型照样一次不调。安装前的三个会话里 `ask_user` 调用次数是 606/0、61/0、37/0——工具在，规则不在，模型不会自己想起来。
+
 ## 用户看到什么
 
 1. 卡片出现在输入框的位置（composer 接管），标题 + `1 / 2` 翻页 + `×`。
@@ -87,6 +96,7 @@ harness 用桩件驱动真实的 host 模块与 client 模块：编码/解码往
 - [x] 多选（`mode: "multi"` → 标题旁 `可多选` 标签、方框标记、可累加与逐个取消）
 - [x] `〔其他〕` 自由输入行（每题强制附带，勾上后就地输入，空着提交会拦下）
 - [x] 已选项计数（多选且 `n > 0` 时标题旁显示 `已选 n 项`）
+- [x] 全局 prompt 引导段 `tool:ask_user`（`order: 108`）：告诉模型什么时候该问，老会话下一轮即生效
 - [x] README 演示素材来自真实界面：`assets/demo.gif` / `assets/demo.mp4`（CDP screencast 逐帧录制真实 `client.js`，非设计稿）
 - [ ] 决策说明的落库事件（`ask.answered` / `ask.decision.delegated` / `ask.decision.halted`，见 `dsh-ask-probe/docs/agent-decision.md`）
 - [ ] 提问次数与体积的度量面板

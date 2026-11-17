@@ -76,11 +76,14 @@ check(
 
 // --- host: tool registration and both terminal paths --------------------
 
+const sections = []
+
 function registerTool() {
   let definition
   const ctx = {
     tools: { register: (tool) => { definition = tool; return () => {} } },
     userQuestions: {},
+    systemPrompt: { section: (section) => { sections.push(section); return () => {} } },
   }
   host.apply(ctx)
   return definition
@@ -88,6 +91,15 @@ function registerTool() {
 
 const tool = registerTool()
 check('tool name', tool.name === 'ask_user')
+
+const guidance = sections.find(section => section.name === 'tool:ask_user')
+check('registers ask_user prompt guidance', guidance !== undefined)
+check('guidance order is finite', Number.isFinite(guidance?.order))
+check(
+  'guidance states when to ask',
+  typeof guidance?.text === 'string' && guidance.text.includes('ambiguous request') && guidance.text.includes('`待确认`'),
+)
+check('inject declares systemPrompt', host.inject.includes('systemPrompt'))
 check('tool requires questions', tool.parameters.required?.includes('questions') === true)
 check('tool has output contract', typeof tool.output?.render === 'function')
 
@@ -105,6 +117,7 @@ function ctxWith(ask) {
   const ctx = {
     tools: { register: () => () => {} },
     userQuestions: { ask },
+    systemPrompt: { section: () => () => {} },
   }
   host.apply(ctx)
   // apply registers into a throwaway registry; re-register on a capturing one.
