@@ -114,7 +114,7 @@ function ctxWith(ask) {
   return definition
 }
 
-const questions = [{ id: 'q1', question: 'pick', options: [{ label: 'A' }, { label: 'B' }] }]
+const questions = [{ id: 'q1', question: 'pick', mode: 'single', options: [{ label: 'A' }, { label: 'B' }] }]
 
 const answeredTool = ctxWith(async (request) => {
   check('sent to service with agent', request.agent?.session?.id === 's1')
@@ -140,6 +140,41 @@ const proceedTool = ctxWith(async () => ({ answers: [{ id: 'q1', selected: [host
 const proceeded = await proceedTool.execute({ questions }, fakeExec({ sessionId: 's3' }).exec)
 check('proceed kind', proceeded.kind === 'deferred' && proceeded.choice === 'proceed')
 
+// --- host: the pick-mode contract ---------------------------------------
+
+const modeTool = ctxWith(async () => ({ answers: [{ id: 'q1', selected: ['A'] }] }))
+
+const noMode = await modeTool
+  .execute({ questions: [{ id: 'q1', question: 'pick', options: [{ label: 'A' }] }] }, fakeExec({ sessionId: 's6' }).exec)
+  .catch((error) => error)
+check('missing mode rejected', noMode instanceof Error && noMode.message.includes('set mode to'), String(noMode))
+
+const badMode = await modeTool
+  .execute({ questions: [{ id: 'q1', question: 'pick', mode: 'weird', options: [{ label: 'A' }] }] }, fakeExec({ sessionId: 's7' }).exec)
+  .catch((error) => error)
+check('unknown mode rejected', badMode instanceof Error && badMode.message.includes('use "single" or "multi"'), String(badMode))
+
+let seenMulti
+const multiTool = ctxWith(async (request) => {
+  seenMulti = request.questions[0].multiSelect
+  return { answers: [{ id: 'q1', selected: ['A'] }] }
+})
+await multiTool.execute(
+  { questions: [{ id: 'q1', question: 'pick', mode: 'multi', options: [{ label: 'A' }] }] },
+  fakeExec({ sessionId: 's8' }).exec,
+)
+check('mode multi asks for multiSelect', seenMulti === true, String(seenMulti))
+
+const legacyTool = ctxWith(async (request) => {
+  seenMulti = request.questions[0].multiSelect
+  return { answers: [{ id: 'q1', selected: ['A'] }] }
+})
+await legacyTool.execute(
+  { questions: [{ id: 'q1', question: 'pick', multi_select: true, options: [{ label: 'A' }] }] },
+  fakeExec({ sessionId: 's9' }).exec,
+)
+check('legacy multi_select still works', seenMulti === true, String(seenMulti))
+
 // --- host: budgets -------------------------------------------------------
 
 const tooMany = ctxWith(async () => ({ answers: [] }))
@@ -147,6 +182,7 @@ const oversized = {
   questions: [{
     id: 'q1',
     question: 'x'.repeat(600),
+    mode: 'single',
     options: Array.from({ length: 5 }, (_, i) => ({ label: `opt ${String(i)}`, impact: { summary: 'y'.repeat(300) } })),
   }],
 }

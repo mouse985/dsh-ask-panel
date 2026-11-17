@@ -25,7 +25,7 @@ harness 默认一路静默执行。遇到两条实现路线都能讲通、但选
 
 1. 卡片出现在输入框的位置（composer 接管），标题 + `1 / 2` 翻页 + `×`。
 2. 选项单击即选定；停在选项上 0.5 秒展开右侧预览（弹幕已在场时换选项即时跟随）。
-3. 单选与多选是两种交互：默认单选（圆点，再点一次取消，选别的自动换）；题目标了「可多选」时标题旁出现 `可多选` 标签、标记变方框，点几个选几个，再点一次取消其中一个。选了多个时标题旁还会显示 `已选 n 项`。
+3. 单选与多选是两种交互，由题目自己声明：`mode: "single"` 是圆点（再点一次取消，选别的自动换）；`mode: "multi"` 时标题旁出现 `可多选` 标签、标记变方框，点几个选几个，再点一次取消其中一个。题没写 `mode` 会被工具直接拒绝——先决定能选几个，再写选项。选了多个时标题旁还会显示 `已选 n 项`。
 4. 每题自动带一行 `〔其他〕`：勾上它，行内展开输入框，写你自己的答案。这一项是必须的，不写就提交会提示补上。
 5. 预览里五段：会发生什么、会改什么、涉及文件、对现有功能的影响、风险与成本。鼠标移进去可以慢慢读、可以滚动，移开 220ms 后收起。
 6. 预览底部是意见输入框：写了就随答案一起提交，留空就是普通选择。
@@ -66,6 +66,7 @@ harness 默认一路静默执行。遇到两条实现路线都能讲通、但选
 - 影响数据编码进 `options[].description`：`summary` + `\n[[impact]]` + JSON。出厂卡片会把它当普通描述显示，本插件解析后渲染成结构化预览。
 - 意见回传编码：单选时 `matchesQuestions` 不允许 `custom` 与 `selected` 同时存在（`packages/host/apiproxy/src/api-proxy.ts:726-729`），所以「选项 + 意见」发 `{selected: [], custom: label + '\n[[note]]' + note}`，由 host 半解码。
 - 合成选项：host 半在模型给的选项之后插 `〔其他〕`（`description` 为 `[[other]]`）、再插 `〔按你的判断继续〕`；「其他」写下的文本走 `custom`，多选时其余 `selected` 保留，单选清空 `selected`（同一条限制）。
+- 拾取模式是每题的必填字段：`mode: "single" | "multi"`。缺 `mode` 且没写旧的 `multi_select` 时工具直接拒绝（`set mode to "single" or "multi"`），`multi_select` 只为向后兼容而保留。
 - client 半注册 `conversation.composer` 链条目，`priority: -2`（出厂 question 卡是默认 0，数值小的先试），`select` 只认带 `〔按你的判断继续〕` 的批次，其余请求留给出厂卡片。
 
 ## 自测
@@ -75,7 +76,7 @@ node tests/harness.mjs
 # @@RESULT@@{"ok":true,"host":{"tool":"ask_user","cases":12},"client":{"entries":1,"answers":4}}
 ```
 
-harness 用桩件驱动真实的 host 模块与 client 模块：编码/解码往返、halt 触发 `concludeTurn`、proceed 路径、超体积与超次数拒绝、选择器只认自家批次、答案构造、单选/多选拾取归约、「其他」自由输入与提交校验、成本估算、链条目注册。
+harness 用桩件驱动真实的 host 模块与 client 模块：编码/解码往返、halt 触发 `concludeTurn`、proceed 路径、超体积与超次数拒绝、选择器只认自家批次、答案构造、单选/多选拾取归约、「其他」自由输入与提交校验、拾取模式契约（缺 `mode` 拒绝、`multi_select` 兼容）、成本估算、链条目注册。
 
 ## 状态
 
@@ -83,7 +84,7 @@ harness 用桩件驱动真实的 host 模块与 client 模块：编码/解码往
 - [x] client 卡片（选项 + 0.5s 悬停预览 + 意见输入 + 取消接管卡）
 - [x] 载入 profile 并在真实会话里注册成功
 - [x] 单选（圆点：再点取消、换选项自动替换）
-- [x] 多选（`multi_select: true` → 标题旁 `可多选` 标签、方框标记、可累加与逐个取消）
+- [x] 多选（`mode: "multi"` → 标题旁 `可多选` 标签、方框标记、可累加与逐个取消）
 - [x] `〔其他〕` 自由输入行（每题强制附带，勾上后就地输入，空着提交会拦下）
 - [x] 已选项计数（多选且 `n > 0` 时标题旁显示 `已选 n 项`）
 - [ ] 决策说明的落库事件（`ask.answered` / `ask.decision.delegated` / `ask.decision.halted`，见 `dsh-ask-probe/docs/agent-decision.md`）
