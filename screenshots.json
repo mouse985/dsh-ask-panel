@@ -1,6 +1,7 @@
 [
-  "assets/panel-hover.png",
-  "assets/panel-note.png",
-  "assets/panel-handoff.png",
-  "assets/panel-cost.png"
+  "assets/shot-default.png",
+  "assets/shot-hover.png",
+  "assets/shot-other.png",
+  "assets/shot-multi.png",
+  "assets/shot-handoff.png"
 ]
